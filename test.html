@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Test OneSignal Web Push - Đã sửa</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fb;
+            color: #1e293b;
+        }
+
+        .card {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e2e8f0;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            margin: 0 0 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge {
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 4px 10px;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 60px;
+            font-size: 1rem;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 12px;
+            transition: 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.97);
+            background: #4338ca;
+        }
+
+        button:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        .status {
+            background: #f1f5f9;
+            padding: 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 12px;
+            word-break: break-all;
+        }
+
+        .green {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .red {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .flex {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .flex button {
+            flex: 1;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 20px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+
+        small {
+            color: #64748b;
+            font-size: 0.7rem;
+        }
+
+        .loading {
+            opacity: 0.6;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <h1>📱 OneSignal Test <span class="badge">Đã sửa lỗi SDK</span></h1>
+        <p>Trang web test thông báo web push.<br>⚠️ <strong>Thay appId của bạn vào dòng code đầu tiên trong phần
+                script.</strong></p>
+    </div>
+
+    <div class="card" id="statusCard">
+        <div>🔘 Trạng thái:</div>
+        <div class="status" id="statusText">⏳ Đang khởi tạo SDK... Vui lòng chờ</div>
+    </div>
+
+    <div class="card">
+        <div>🔔 Gửi thông báo</div>
+        <div class="flex">
+            <button id="sendSimpleBtn" disabled>✅ Gửi thông báo đơn giản</button>
+            <button id="sendWithBtnBtn" disabled>🔘 Gửi + nút bấm</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div>📨 Gửi thông báo đến External ID</div>
+        <input type="text" id="externalIdInput" placeholder="Nhập External ID, ví dụ: user_123" value="">
+        <button id="sendToExternalBtn" disabled>📤 Gửi đến External ID này</button>
+    </div>
+
+    <div class="card">
+        <div>🆔 Gửi thông báo đến Subscription ID</div>
+        <input type="text" id="subIdInput" placeholder="Nhập Subscription ID, ví dụ: bc0aae3d..." value="">
+        <button id="sendToSubBtn" disabled>📤 Gửi đến Subscription ID này</button>
+    </div>
+
+    <div class="card">
+        <div>⚙️ Tiện ích</div>
+        <button id="getSubBtn" disabled>📋 Lấy Subscription ID</button>
+        <button id="setExternalBtn" disabled>🏷️ Gán External ID</button>
+        <button id="logoutExternalBtn" disabled>🚫 Xoá External ID</button>
+        <button id="requestPermBtn" style="background:#16a34a;">🔔 Bật thông báo (nếu chưa)</button>
+    </div>
+
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+        // ==================== 👇 THAY APP ID CỦA BẠN VÀO ĐÂY ====================
+        const YOUR_APP_ID = "8a23e4ff-b803-4d87-8900-c0dedc66cb3d";
+        const YOUR_REST_API_KEY = "os_v2_app_yp3i6jfd6vbffifqutequzp63o6is7mc6liefpmxzudibx2supcuf5kgft7xpod5lfryylp55ifbkn34a55447sahxv6f7urmh2ozfi";
+        // ====================================================================
+
+        // Không dùng biến isInitialized nữa, thay bằng promise và queue
+        let onesignalReady = false;
+        let pendingCalls = [];
+
+        function whenReady(fn) {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            window.OneSignalDeferred.push(function (OneSignal) {
+                fn(OneSignal);
+            });
+        }
+
+        function enableButtons() {
+            const btns = ['sendSimpleBtn', 'sendWithBtnBtn', 'sendToExternalBtn', 'sendToSubBtn', 'getSubBtn', 'setExternalBtn', 'logoutExternalBtn'];
+            btns.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.disabled = false;
+            });
+        }
+
+        function updateStatusUI(OneSignal) {
+            const pushSub = OneSignal.User?.pushSubscription || {};
+            // Kết hợp cả quyền trình duyệt và trạng thái subscription
+            const isSubscribed = pushSub.optedIn || OneSignal.Notifications.permission;
+            const subscriptionId = pushSub.id || '';
+            const externalId = OneSignal.User?.externalId || '';
+
+            const statusDiv = document.getElementById('statusText');
+            statusDiv.innerHTML = `
+                ✅ SDK đã sẵn sàng<br>
+                📱 Trạng thái: <strong>${isSubscribed ? 'ĐÃ BẬT ✓ (đã cho phép)' : 'CHƯA BẬT ✗ (chưa cho phép)'}</strong><br>
+                🆔 Subscription ID: <code>${subscriptionId || 'đang lấy...'}</code><br>
+                🏷️ External ID: <code>${externalId || 'chưa set'}</code><br>
+                ${!isSubscribed ? '💡 Bấm nút "Bật thông báo" bên dưới để cho phép.' : '✅ Sẵn sàng gửi/nhận thông báo.'}
+            `;
+
+            if (isSubscribed) {
+                statusDiv.classList.add('green');
+                statusDiv.classList.remove('red');
+                enableButtons(); // Cho phép bấm ngay khi có quyền
+            } else {
+                statusDiv.classList.add('red');
+                statusDiv.classList.remove('green');
+                document.getElementById('getSubBtn').disabled = false;
+            }
+        }
+
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        window.OneSignalDeferred.push(async function (OneSignal) {
+            try {
+                await OneSignal.init({
+                    appId: YOUR_APP_ID,
+                    safari_web_id: null,
+                    notifyButton: { enable: false },
+                    allowLocalhostAsSecureOrigin: true,
+                });
+                OneSignal.Debug.setLogLevel('trace');
+
+                // Kiểm tra trạng thái
+                const pushSub = OneSignal.User?.PushSubscription || OneSignal.User?.pushSubscription || {};
+                const isSubscribed = pushSub.optedIn || OneSignal.Notifications?.permission || false;
+                const subscriptionId = pushSub.id || '';
+                const externalId = OneSignal.User?.externalId || '';
+
+                // Cập nhật giao diện lần đầu
+                updateStatusUI(OneSignal);
+
+                // Lắng nghe sự thay đổi (khi vừa bấm Bật thông báo xong)
+                const pushSubObj = OneSignal.User?.PushSubscription || OneSignal.User?.pushSubscription;
+                if (pushSubObj && typeof pushSubObj.addEventListener === 'function') {
+                    pushSubObj.addEventListener('change', () => {
+                        console.log("Subscription changed, updating UI...");
+                        updateStatusUI(OneSignal);
+                    });
+                }
+
+                // Dự phòng: Nếu sau 3s vẫn chưa có ID thì thử check lại
+                setTimeout(() => {
+                    if (!OneSignal.User?.PushSubscription?.id && !OneSignal.User?.pushSubscription?.id) {
+                        console.log("Retrying status update for ID...");
+                        updateStatusUI(OneSignal);
+                    }
+                }, 3000);
+
+                onesignalReady = true;
+                // Chạy các hàm đang chờ
+                pendingCalls.forEach(fn => fn());
+                pendingCalls = [];
+
+            } catch (e) {
+                document.getElementById('statusText').innerHTML = `❌ Lỗi init: ${e.message}<br>Kiểm tra appId hoặc network`;
+                console.error(e);
+            }
+        });
+
+        // Nút bật thông báo (quan trọng cho lần đầu)
+        document.getElementById('requestPermBtn')?.addEventListener('click', async () => {
+            if (Notification.permission === 'denied') {
+                alert("Trình duyệt đang chặn thông báo. Hãy bấm vào biểu tượng ổ khóa ở thanh địa chỉ để Reset Permission.");
+                return;
+            }
+            whenReady(async (OneSignal) => {
+                try {
+                    console.log("Đang yêu cầu quyền...");
+                    await OneSignal.Notifications.requestPermission();
+                    // Reload để cập nhật trạng thái
+                    setTimeout(() => location.reload(), 1500);
+                } catch (e) {
+                    alert("Lỗi khi bật thông báo: " + e.message);
+                }
+            });
+        });
+
+        // Helper gửi thông báo
+        async function sendNotificationViaApi(contents, title, url, buttons = []) {
+            whenReady(async (OneSignal) => {
+                const subId = pushSub?.id;
+                if (!subId) {
+                    alert("Chưa có Subscription ID. Bạn cần bật thông báo trước (bấm nút xanh 'Bật thông báo')");
+                    return;
+                }
+
+                const restApiKey = YOUR_REST_API_KEY;
+                if (!restApiKey) {
+                    alert("Hãy điền REST API Key vào code trước.");
+                    return;
+                }
+
+                const notificationBody = {
+                    app_id: YOUR_APP_ID,
+                    include_subscription_ids: [subId],
+                    contents: { en: contents || "Test từ web của bạn" },
+                    headings: { en: title || "OneSignal Test" },
+                    ...(url && { url: url }),
+                    ...(buttons.length > 0 && { web_buttons: buttons })
+                };
+
+                try {
+                    const resp = await fetch("https://onesignal.com/api/v1/notifications", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Basic ${restApiKey}`
+                        },
+                        body: JSON.stringify(notificationBody)
+                    });
+                    const data = await resp.json();
+                    if (data.errors) {
+                        alert("Lỗi API: " + JSON.stringify(data.errors));
+                    } else {
+                        alert("✅ Đã gửi thành công! ID: " + data.id);
+                    }
+                } catch (e) {
+                    alert("Lỗi gửi: " + e.message);
+                }
+            });
+        }
+
+        // Gắn sự kiện
+        document.getElementById('sendSimpleBtn')?.addEventListener('click', () => {
+            sendNotificationViaApi("Thông báo từ trình duyệt của bạn", "Chào bạn 👋", null, []);
+        });
+
+        document.getElementById('sendWithBtnBtn')?.addEventListener('click', () => {
+            sendNotificationViaApi(
+                "Bấm thử nút bên dưới",
+                "Test có nút bấm",
+                "https://onesignal.com",
+                [
+                    { id: "like", text: "👍 Thích" },
+                    { id: "dislike", text: "👎 Không thích" }
+                ]
+            );
+        });
+
+        document.getElementById('getSubBtn')?.addEventListener('click', async () => {
+            whenReady(async () => {
+                const sub = await OneSignal.getSubscriptionId();
+                alert("Subscription ID:\n" + (sub || "Chưa có. Bạn cần bật thông báo trước."));
+            });
+        });
+
+        document.getElementById('setExternalBtn')?.addEventListener('click', async () => {
+            whenReady(async (OneSignal) => {
+                const id = prompt("Nhập External ID:", "user_" + Math.floor(Math.random() * 10000));
+                if (id) {
+                    await OneSignal.login(id);
+                    alert("✅ Đã set External ID = " + id);
+                    location.reload();
+                }
+            });
+        });
+
+        document.getElementById('logoutExternalBtn')?.addEventListener('click', async () => {
+            whenReady(async (OneSignal) => {
+                await OneSignal.logout();
+                alert("Đã xoá External ID");
+                location.reload();
+            });
+        });
+
+        document.getElementById('sendToExternalBtn')?.addEventListener('click', async () => {
+            const externalId = document.getElementById('externalIdInput').value.trim();
+            if (!externalId) {
+                alert("Nhập External ID trước");
+                return;
+            }
+            const restApiKey = YOUR_REST_API_KEY;
+
+            const res = await fetch("https://onesignal.com/api/v1/notifications", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Basic ${restApiKey}` },
+                body: JSON.stringify({
+                    app_id: YOUR_APP_ID,
+                    include_external_user_ids: [externalId],
+                    contents: { en: `Test cho external id: ${externalId}` },
+                    headings: { en: "🔔 Gửi theo External ID" }
+                })
+            });
+            const data = await res.json();
+            alert(data.errors ? "Lỗi: " + JSON.stringify(data.errors) : "✅ Đã gửi");
+        });
+
+        document.getElementById('sendToSubBtn')?.addEventListener('click', async () => {
+            const targetSubId = document.getElementById('subIdInput').value.trim();
+            if (!targetSubId) {
+                alert("Nhập Subscription ID trước");
+                return;
+            }
+            const restApiKey = YOUR_REST_API_KEY;
+
+            const res = await fetch("https://onesignal.com/api/v1/notifications", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Basic ${restApiKey}` },
+                body: JSON.stringify({
+                    app_id: YOUR_APP_ID,
+                    include_subscription_ids: [targetSubId],
+                    contents: { en: `Thông báo gửi đến Subscription ID: ${targetSubId}` },
+                    headings: { en: "🔔 Thông báo đích danh" }
+                })
+            });
+            const data = await res.json();
+            alert(data.errors ? "Lỗi: " + JSON.stringify(data.errors) : "✅ Đã gửi thành công");
+        });
+    </script>
+</body>
+
+</html>
