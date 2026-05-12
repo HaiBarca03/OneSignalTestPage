@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Socket Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #f1f5f9;
+            padding: 40px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 20px;
+        }
+
+        .config-card {
+            background: #1e293b;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr auto;
+            gap: 16px;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        input {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            padding: 10px 14px;
+            color: #f1f5f9;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        button.disconnect {
+            background: #ef4444;
+        }
+
+        button.disconnect:hover {
+            background: #dc2626;
+        }
+
+        .status {
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #64748b;
+        }
+
+        .status-dot.connected {
+            background: #22c55e;
+            box-shadow: 0 0 8px #22c55e;
+        }
+
+        .status-dot.error {
+            background: #ef4444;
+        }
+
+        .events-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        .badge-card {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .badge-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #0f172a;
+            border-radius: 6px;
+            border-left: 4px solid #64748b;
+        }
+
+        .badge-item.group-action {
+            border-color: #f59e0b;
+        }
+
+        .badge-item.group-income {
+            border-color: #10b981;
+        }
+
+        .badge-item.group-total {
+            border-color: #3b82f6;
+            background: #1e293b;
+            border-width: 1px;
+            border-left-width: 4px;
+        }
+
+        .badge-count {
+            font-weight: 700;
+            color: #3b82f6;
+            font-size: 18px;
+        }
+
+        .log-card {
+            background: #1e293b;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #334155;
+        }
+
+        .log-header {
+            padding: 12px 20px;
+            background: #334155;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .log-content {
+            flex: 1;
+            padding: 0;
+            overflow-y: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry {
+            padding: 12px 20px;
+            border-bottom: 1px solid #334155;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            color: #64748b;
+            margin-right: 10px;
+        }
+
+        .log-event {
+            font-weight: 700;
+            color: #818cf8;
+        }
+
+        pre {
+            margin: 8px 0 0 0;
+            background: #0f172a;
+            padding: 10px;
+            border-radius: 4px;
+            color: #cbd5e1;
+            overflow-x: auto;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div id="protocolWarning" class="warning-card">
+            <strong>⚠️ Security Warning:</strong> You are opening this test client via <code>file://</code> protocol.
+            Browsers may block socket connections or treat them as unsafe origins.
+            <strong>Recommendation:</strong> Use a local server (e.g. <code>npx serve .</code> or VS Code Live Server).
+        </div>
+        <div class="config-card">
+            <div class="config-grid" style="grid-template-columns: 1.5fr 0.5fr 2fr auto;">
+                <div class="form-group">
+                    <label for="url">Socket Server URL</label>
+                    <input type="text" id="url" value="http://localhost:3000" placeholder="e.g., http://localhost:3000">
+                </div>
+                <div class="form-group">
+                    <label for="namespace">Namespace</label>
+                    <input type="text" id="namespace" value="/socket" placeholder="/socket">
+                </div>
+                <div class="form-group">
+                    <label for="token">JWT Token</label>
+                    <input type="password" id="token" placeholder="Paste your JWT here">
+                </div>
+                <button id="btnConnect">Connect</button>
+            </div>
+            <div class="status">
+                <div id="statusDot" class="status-dot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+        </div>
+
+        <div class="events-container">
+            <div class="badge-card">
+                <h3 style="margin:0 0 10px 0; font-size: 16px;">Unread Status</h3>
+                <div class="badge-item group-total">
+                    <span>TOTAL</span>
+                    <span id="countTotal" class="badge-count">0</span>
+                </div>
+                <div class="badge-item group-action">
+                    <span>ACTION</span>
+                    <span id="countAction" class="badge-count">0</span>
+                </div>
+                <div class="badge-item group-income">
+                    <span>INCOME</span>
+                    <span id="countIncome" class="badge-count">0</span>
+                </div>
+                <div class="badge-item group-opportunity">
+                    <span>OPPORTUNITY</span>
+                    <span id="countOpportunity" class="badge-count">0</span>
+                </div>
+                <div class="badge-item group-update">
+                    <span>UPDATE</span>
+                    <span id="countUpdate" class="badge-count">0</span>
+                </div>
+                <div style="flex: 1"></div>
+                <p style="font-size: 12px; color: #64748b; line-height: 1.5; margin: 0">
+                    Listening for: <br>
+                    • NEW_NOTIFICATION <br>
+                    • NOTIFICATION_READ_SYNC <br>
+                    • NOTIFICATION_READ_ALL_SYNC
+                </p>
+            </div>
+
+            <div class="log-card">
+                <div class="log-header">
+                    <span>Real-time Event Log</span>
+                    <button id="btnClear" style="padding: 2px 8px; font-size: 11px; background: #475569;">Clear
+                        Log</button>
+                </div>
+                <div class="log-content" id="logContent">
+                    <div class="log-entry" style="color: #64748b; text-align: center; padding: 40px;">
+                        Waiting for connection...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        const btnConnect = document.getElementById('btnConnect');
+        const logContent = document.getElementById('logContent');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const protocolWarning = document.getElementById('protocolWarning');
+
+        // Check for file protocol
+        if (window.location.protocol === 'file:') {
+            protocolWarning.classList.add('show');
+        }
+
+        function addLog(event, data) {
+            console.log(`[${event}]`, data); // Backup to browser console
+            if (logContent.children.length === 1 && logContent.children[0].style.textAlign === 'center') {
+                logContent.innerHTML = '';
+            }
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `
+                <span class="log-time">[${time}]</span>
+                <span class="log-event">${event}</span>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            logContent.prepend(entry);
+        }
+
+        function updateBadges(unreadCount) {
+            if (!unreadCount) return;
+            document.getElementById('countTotal').innerText = unreadCount.TOTAL || 0;
+            document.getElementById('countAction').innerText = unreadCount.ACTION || 0;
+            document.getElementById('countIncome').innerText = unreadCount.INCOME || 0;
+            document.getElementById('countOpportunity').innerText = unreadCount.OPPORTUNITY || 0;
+            document.getElementById('countUpdate').innerText = unreadCount.UPDATE || 0;
+        }
+
+        btnConnect.onclick = (e) => {
+            if (e) e.preventDefault();
+
+            if (socket && socket.connected) {
+                socket.disconnect();
+                return;
+            }
+
+            const rawUrl = document.getElementById('url').value.trim();
+            const namespace = document.getElementById('namespace').value.trim();
+            const token = document.getElementById('token').value.trim();
+
+            if (!token) {
+                alert('Please paste a JWT token');
+                return;
+            }
+
+            btnConnect.innerText = 'Connecting...';
+            btnConnect.disabled = true;
+
+            // Combine URL and namespace
+            const host = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+            const ns = namespace.startsWith('/') ? namespace : '/' + namespace;
+
+            addLog('SYSTEM', { message: 'Attempting connection', host: host, namespace: ns });
+
+            try {
+                socket = io(host + ns, {
+                    auth: { token: token },
+                    // transports: ['websocket'],
+                    forceNew: true,
+                    reconnectionAttempts: 3
+                });
+            } catch (err) {
+                addLog('ERROR', { message: 'Failed to initialize socket', error: err.message });
+                btnConnect.innerText = 'Connect';
+                btnConnect.disabled = false;
+                return;
+            }
+
+            socket.on('connect', () => {
+                statusDot.className = 'status-dot connected';
+                statusText.innerText = `Connected (ID: ${socket.id})`;
+                btnConnect.innerText = 'Disconnect';
+                btnConnect.className = 'disconnect';
+                btnConnect.disabled = false;
+                addLog('SYSTEM', { status: 'Connected successfully' });
+            });
+
+            socket.on('disconnect', (reason) => {
+                statusDot.className = 'status-dot';
+                statusText.innerText = `Disconnected (${reason})`;
+                btnConnect.innerText = 'Connect';
+                btnConnect.className = '';
+                btnConnect.disabled = false;
+                addLog('SYSTEM', { status: 'Disconnected', reason });
+            });
+
+            socket.on('connect_error', (err) => {
+                statusDot.className = 'status-dot error';
+                statusText.innerText = `Connection Error: ${err.message}`;
+                btnConnect.innerText = 'Connect';
+                btnConnect.className = '';
+                btnConnect.disabled = false;
+                addLog('ERROR', { message: err.message, context: err.context });
+            });
+
+            // Listen for implemented notification events
+            socket.on('NEW_NOTIFICATION', (data) => {
+                addLog('NEW_NOTIFICATION', data);
+                updateBadges(data.unreadCount);
+            });
+
+            socket.on('NOTIFICATION_READ_SYNC', (data) => {
+                addLog('NOTIFICATION_READ_SYNC', data);
+                updateBadges(data.unreadCount);
+            });
+
+            socket.on('NOTIFICATION_READ_ALL_SYNC', (data) => {
+                addLog('NOTIFICATION_READ_ALL_SYNC', data);
+                updateBadges(data.unreadCount);
+            });
+        };
+
+        document.getElementById('btnClear').onclick = () => {
+            logContent.innerHTML = '<div class="log-entry" style="color: #64748b; text-align: center; padding: 40px;">Log cleared.</div>';
+        };
+    </script>
+</body>
+
+</html>
