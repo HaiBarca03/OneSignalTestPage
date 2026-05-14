@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Test OneSignal Web Push - Đã sửa</title>
+    <link rel="manifest" href="/manifest.json">
     <style>
         * {
             box-sizing: border-box;
@@ -170,6 +171,7 @@
         // Không dùng biến isInitialized nữa, thay bằng promise và queue
         let onesignalReady = false;
         let pendingCalls = [];
+        let currentPushSub = null;
 
         function whenReady(fn) {
             window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -187,7 +189,8 @@
         }
 
         function updateStatusUI(OneSignal) {
-            const pushSub = OneSignal.User?.pushSubscription || {};
+            currentPushSub = OneSignal.User?.pushSubscription || {};
+            const pushSub = currentPushSub;
             // Kết hợp cả quyền trình duyệt và trạng thái subscription
             const isSubscribed = pushSub.optedIn || OneSignal.Notifications.permission;
             const subscriptionId = pushSub.id || '';
@@ -282,7 +285,7 @@
         // Helper gửi thông báo
         async function sendNotificationViaApi(contents, title, url, buttons = []) {
             whenReady(async (OneSignal) => {
-                const subId = pushSub?.id;
+                const subId = currentPushSub?.id;
                 if (!subId) {
                     alert("Chưa có Subscription ID. Bạn cần bật thông báo trước (bấm nút xanh 'Bật thông báo')");
                     return;
